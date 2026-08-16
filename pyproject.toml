@@ -1,0 +1,106 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bindspec"
+# the git tag is the version — never hardcode it here.
+dynamic = ["version"]
+description = "Data that says where it came from: declarative bindings, contracts and a provenance manifest for lpspec models"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["optimisation", "optimization", "data-quality", "provenance", "declarative", "yaml", "polars", "lpspec"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 3 - Alpha",
+    "Typing :: Typed",
+]
+requires-python = ">=3.11"
+dependencies = [
+    # every source is read through it, and every contract is an aggregate over
+    # one scan rather than a pass in Python.
+    "polars>=1.30",
+    # the closed schema, and the near-miss error that comes with rejecting a key.
+    "pydantic>=2.1",
+    "pyyaml>=6.0",
+    # the model half. bindspec reads `Model.to_dict()` to learn which parameters
+    # exist over which dims — reparsing that schema here would be a second copy
+    # that drifts. The dependency runs one way and never back.
+    "lpspec>=0.0.1a147",
+]
+
+[project.urls]
+repository = "https://github.com/fluxopt/bindspec"
+
+[project.scripts]
+bindspec = "bindspec.__main__:main"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bindspec"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.16",
+    "pyrefly>=1.2",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "N", "UP", "FA", "TC", "SIM", "RUF",
+    "PERF", "C4", "PIE", "RET", "FLY", "FURB", "T20", "T10",
+    "PLC", "PLE", "D",
+]
+ignore = [
+    "E501",     # line too long (handled by formatter)
+    "RET504",   # unnecessary assignment before return
+    "PLC0415",  # import not at top level (lazy imports are load-bearing here)
+    "D1",       # missing docstring — AGENTS.md decides where one earns its place
+]
+extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/bindspec/__main__.py" = ["T20"]  # a command reports by printing; stdout is its interface
+"tests/**/*.py" = ["D"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.pyrefly]
+python-version = "3.11"
+project-includes = ["src/bindspec"]
+preset = "strict"
+
+# lpspec is not on PyPI yet, so it resolves from the repo — the same shape lpspec
+# itself uses for its unreleased linopy pin. Replaced by a plain floor the day it
+# publishes; the dependency above is already written against that day.
+[tool.uv.sources]
+lpspec = { git = "https://github.com/fluxopt/lpspec", branch = "main" }

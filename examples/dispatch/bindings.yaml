@@ -1,0 +1,44 @@
+description: Six hours of a small fleet, as exported from the planning sheet.
+
+sources:
+  generators:
+    path: data/generators.csv
+    units:
+      p_max_mw: MW
+      marginal_cost: EUR/MWh
+  demand:
+    path: data/demand.csv
+    units:
+      mw: MW
+
+coords:
+  snapshot:
+    from: demand
+    column: hour
+
+bind:
+  p_max:
+    from: generators
+    dims: {generator: name}
+    value: p_max_mw
+  cost:
+    from: generators
+    dims: {generator: name}
+    value: marginal_cost
+  load:
+    from: demand
+    dims: {snapshot: hour}
+    value: mw
+
+expect:
+  p_max:
+    units: MW
+    range: [0, null]
+    covers: generator
+  cost:
+    units: EUR/MWh
+    range: [0, null]
+    covers: generator
+  load:
+    units: MW
+    covers: snapshot
