@@ -113,6 +113,10 @@ them would mean owning a dimensional algebra and a registry of spellings; the
 whole value of the check is that the two declarations came from different people
 and have to agree.
 
+Because both sides of that comparison *are* declarations, it is settled before a
+source is opened — §6 — and refused as a `BindingError` rather than a
+`ContractError`. It is the one entry in this section that never reads a byte.
+
 **Coverage is the check the engine cannot make.** lpspec is right not to: sparse
 data gives sparse variables, and a missing row is how absence is *said*. `covers`
 is where you say this parameter is not one of those.
@@ -125,10 +129,12 @@ error.
 
 Before any source is opened: the schema, every name (parameter, source,
 dimension), every dim set, every dimension's members, and every expectation that
-can be refuted structurally — `covers` naming a foreign dim, `units` expected of
-a column whose source declares none.
+can be refuted structurally — `covers` naming a foreign dim, and `units` either
+expected of a column whose source declares none or expected as a spelling the
+source contradicts.
 
-After reading: the contracts of §5, and the pin of §2.
+After reading: the pin of §2, and the contracts of §5 that need values — keys,
+nulls, range, coverage.
 
 ## 7. What is deliberately not checked
 
@@ -138,7 +144,35 @@ After reading: the contracts of §5, and the pin of §2.
 - **That coordinates outside the master index are absent.** lpspec refuses those
   by design, with a better message than this package could give.
 
-## 8. What is not here yet
+## 8. The manifest
+
+What `bind` records, and what `write_manifest` puts on disk. It is the output
+half of this file: `bindings.yaml` says what must be true, and the manifest says
+what was read and what held.
+
+```json
+"sources": {"demand": {"path": "data/demand.csv", "sha256": "3997…", "bytes": 55}},
+"coords":  {"snapshot": {"members": 6, "from": "bindings", "source": "demand", "column": "hour"}},
+"parameters": {"load": {"source": "demand", "column": "mw", "rows": 6, "units": "MW",
+                        "checked": ["keyed", "units", "non_null", "covers:snapshot"]}}
+```
+
+Two properties it is built to have, and both are load-bearing:
+
+- **A path is recorded as declared, never as resolved.** An absolute path off
+  one laptop re-derives nothing on anybody else's checkout, and re-deriving is
+  the only reason the record exists. The digest is the identity; the path is a
+  locator relative to the bindings file.
+- **It is deterministic.** No timestamps, no iteration order, no version of this
+  package baked into a value. The same bytes produce the same record, so two
+  runs are comparable by `diff` and a manifest can be committed beside a result.
+
+`checked` lists what *held*, not what was declared — which is why a parameter
+with no `expect:` entry still shows `keyed` and `non_null`.
+
+The full worked example is [`examples/dispatch/run.out`](../examples/dispatch/run.out).
+
+## 9. What is not here yet
 
 **Transforms.** Resampling, clustering and aggregation change an answer more
 than most constraints do, and recording only their *output* pins the model

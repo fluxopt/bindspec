@@ -69,7 +69,44 @@ bindspec check bindings.yaml model.yaml
 bindspec manifest bindings.yaml model.yaml -o manifest.json
 ```
 
-The whole example is [examples/dispatch](examples/dispatch), and it solves.
+## What comes back
+
+[examples/dispatch](examples/dispatch) runs end to end — `uv run python
+examples/dispatch/run.py` — and its whole output is committed as
+[`run.out`](examples/dispatch/run.out) and asserted line for line, so nothing
+quoted on this page can go stale unnoticed.
+
+What the bind reports, per parameter and per coordinate:
+
+```text
+[2] bind -- read, then check what was read
+    p_max      3 rows  MW        keyed, units, non_null, range, covers:generator
+    cost       3 rows  EUR/MWh   keyed, units, non_null, range, covers:generator
+    load       6 rows  MW        keyed, units, non_null, covers:snapshot
+    snapshot   6 members, from the bindings
+    generator  3 members, from the model
+```
+
+What a reader needs to re-derive the answer — the path as *declared*, so the
+record still means something on somebody else's checkout:
+
+```text
+      "sources": {
+        "demand": {
+          "bytes": 55,
+          "path": "data/demand.csv",
+          "sha256": "3997994d9c84db4f6b4629239d257bc43150e372413ba7c43ccbbb993b2e7998"
+        },
+```
+
+And a refusal, naming the parameter, what was expected and what to do:
+
+```text
+      ContractError: parameter 'p_max' covers 'generator', and 1 of its 3 members has no row: 'gas'.
+```
+
+That last one is the argument for the package in one line. Without it lpspec
+builds that model, solves it, and hands back a cheaper answer.
 
 ## What it checks
 
@@ -97,7 +134,7 @@ argue with it.
 | format adapters, API clients, scraping | produce the file upstream; pin it here |
 | cleaning one vendor's broken export | the same — nobody reviews a CSV reader |
 | unit *conversion* | convert upstream and declare what you produced |
-| a transform language | deferred until the contracts say which transforms are worth recording — [SPEC](docs/SPEC.md#what-is-not-here-yet) |
+| a transform language | deferred until the contracts say which transforms are worth recording — [SPEC](docs/SPEC.md#9-what-is-not-here-yet) |
 
 It is not a workflow engine, not dbt, not a units library and not a catalogue.
 Pinning is a hash; it is not custody.

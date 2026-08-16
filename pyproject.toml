@@ -75,6 +75,7 @@ extend-fixable = ["B", "SIM", "RUF", "C4", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/bindspec/__main__.py" = ["T20"]  # a command reports by printing; stdout is its interface
+"examples/**/*.py" = ["T20", "D"]  # the narrated example's whole output is its point
 "tests/**/*.py" = ["D"]
 
 [tool.ruff.format]

@@ -60,6 +60,11 @@ def units_the_source_never_declared(spec: dict) -> dict:
     return spec
 
 
+def a_unit_that_does_not_match(spec: dict) -> dict:
+    spec['expect']['p_max'] = {'units': 'kW'}
+    return spec
+
+
 @pytest.mark.parametrize(
     ('mutate', 'message'),
     [
@@ -73,6 +78,7 @@ def units_the_source_never_declared(spec: dict) -> dict:
         pytest.param(expect_something_unbound, 'which is not bound', id='expectation-on-nothing'),
         pytest.param(covers_a_foreign_dim, 'not one of its dims', id='covers-a-dim-the-parameter-lacks'),
         pytest.param(units_the_source_never_declared, 'declares no unit', id='unit-expected-but-never-declared'),
+        pytest.param(a_unit_that_does_not_match, "declares 'MW' for column 'cap'", id='unit-mismatch'),
     ],
 )
 def test_what_is_refused_before_a_source_is_opened(bindings, mutate, message):

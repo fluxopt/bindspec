@@ -38,6 +38,21 @@ The two refusal suites share a shape worth keeping: one known-good pair in
 as the `id`. A new check lands as a new mutation, and the unmutated pair is the
 control.
 
+## The narrated example
+
+`examples/dispatch/run.py` calls the real verbs and prints what each returns.
+Its whole output is committed as `run.out` and compared line for line, and the
+README quotes blocks of it verbatim under a test — so a changed message fails CI
+instead of leaving docs that describe an older package.
+
+```bash
+uv run python examples/dispatch/run.py               # read it
+uv run pytest tests/test_example.py --update-golden  # rewrite run.out after a deliberate change
+```
+
+The diff of `run.out` is the review artifact: exactly how the story changed, in
+the same PR that changed it.
+
 ## Branches, commits, PRs
 
 Branch from `origin/main`, one topic per branch. Conventional-commit subjects
