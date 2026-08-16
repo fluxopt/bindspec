@@ -13,7 +13,7 @@ coefficient rather than an error.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import polars as pl
 
@@ -68,18 +68,48 @@ def _check_range(name: str, frame: pl.DataFrame, expect: Expect) -> None:
         raise ContractError(f"parameter '{name}' expects values <= {high}; the highest is {found_high}.")
 
 
+def _aligned(name: str, dim: str, master: pl.DataFrame, frame: pl.DataFrame) -> pl.DataFrame:
+    """The master coordinate, in the dtype the parameter carries the dim as.
+
+    A join needs one type where the set comparison this replaced did not, and a
+    dim declared by ``values:`` in the model gets whatever polars infers from
+    python literals — so Int64 ``[0, 1, 2]`` against an Int32 column has to be
+    brought together rather than reported as wholly missing. Only a same-kind
+    cast is allowed: polars will happily turn ``0`` into ``'0'``, and silently
+    agreeing that those are the same coordinate is worse than refusing.
+    """
+    declared, carried = master.schema[dim], frame.schema[dim]
+    if declared == carried:
+        return master
+    same_kind = (declared.is_numeric() and carried.is_numeric()) or (declared.is_temporal() and carried.is_temporal())
+    if not same_kind:
+        raise ContractError(
+            f"parameter '{name}' carries '{dim}' as {carried}, and the master coordinate is {declared}. "
+            'Those are different kinds of value, so coverage cannot be checked.'
+        )
+    try:
+        return master.with_columns(pl.col(dim).cast(carried))
+    except pl.exceptions.PolarsError as error:
+        raise ContractError(
+            f"parameter '{name}' carries '{dim}' as {carried}, which does not hold every member of the "
+            f'master coordinate ({declared}).'
+        ) from error
+
+
 def _check_coverage(
-    name: str, frame: pl.DataFrame, expect: Expect, dims: Sequence[str], coords: dict[str, list[Any]]
+    name: str, frame: pl.DataFrame, expect: Expect, dims: Sequence[str], coords: dict[str, pl.DataFrame]
 ) -> None:
     for dim in expect.covered(tuple(dims)):
-        present = set(frame[dim].to_list())
-        missing = [value for value in coords[dim] if value not in present]
-        if missing:
-            shown = ', '.join(repr(value) for value in missing[:5])
-            more = f' (+{len(missing) - 5} more)' if len(missing) > 5 else ''
+        master = _aligned(name, dim, coords[dim], frame)
+        missing = (
+            master.with_row_index('_position').join(frame.select(dim).unique(), on=dim, how='anti').sort('_position')
+        )
+        if missing.height:
+            shown = ', '.join(repr(value) for value in missing[dim].head(5).to_list())
+            more = f' (+{missing.height - 5} more)' if missing.height > 5 else ''
             raise ContractError(
-                f"parameter '{name}' covers '{dim}', and {len(missing)} of its {len(coords[dim])} members "
-                f'{"has" if len(missing) == 1 else "have"} no row: {shown}{more}.'
+                f"parameter '{name}' covers '{dim}', and {missing.height} of its {master.height} members "
+                f'{"has" if missing.height == 1 else "have"} no row: {shown}{more}.'
             )
 
 
@@ -88,7 +118,7 @@ def check_parameter(
     frame: pl.DataFrame,
     dims: Sequence[str],
     expect: Expect,
-    coords: dict[str, list[Any]],
+    coords: dict[str, pl.DataFrame],
 ) -> list[str]:
     """Run every contract that applies to one bound parameter.
 
@@ -100,7 +130,8 @@ def check_parameter(
         frame: Its rows, columns ``(dims…, value)``, already renamed.
         dims: The parameter's dimensions, in the model's declared order.
         expect: What was declared about it, or the defaults.
-        coords: Master coordinate members by dimension, for coverage.
+        coords: Master coordinate members by dimension, one single-column frame
+            each, for coverage.
 
     Returns:
         The names of the checks that held, for the manifest.

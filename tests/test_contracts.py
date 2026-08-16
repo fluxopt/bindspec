@@ -4,6 +4,7 @@ import copy
 import re
 from typing import TYPE_CHECKING
 
+import polars as pl
 import pytest
 
 from bindspec import ContractError, SourceError, bind
@@ -11,6 +12,23 @@ from tests.conftest import MODEL
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def _narrow_demand(tmp_path: Path, hours: pl.Series) -> dict:
+    pl.DataFrame({'hour': hours, 'mw': [80.0, 120.0]}).write_parquet(tmp_path / 'demand.parquet')
+    return {
+        'sources': {'demand': {'path': str(tmp_path / 'demand.parquet')}},
+        'bind': {'load': {'from': 'demand', 'dims': {'snapshot': 'hour'}, 'value': 'mw'}},
+        'expect': {'load': {'covers': 'snapshot'}},
+    }
+
+
+#: The model declares the members, so they are whatever polars infers from python
+#: literals — Int64 — while the column they are compared against need not be.
+NARROW_MODEL = {
+    'dimensions': {'snapshot': {'values': [0, 1]}},
+    'parameters': {'load': {'dims': ['snapshot']}},
+}
 
 
 def duplicate_coordinate(spec: dict, workspace: Path) -> dict:
@@ -61,6 +79,20 @@ def test_a_missing_row_is_not_a_failure_unless_covers_says_so(bindings, workspac
     assert binding.sources['p_max'].height == 1, (
         'sparse data gives sparse variables — that is lpspec, and it is deliberate'
     )
+
+
+def test_coverage_holds_when_the_column_is_narrower_than_the_declared_members(tmp_path):
+    spec = _narrow_demand(tmp_path, pl.Series([0, 1], dtype=pl.Int32))
+    assert bind(spec, NARROW_MODEL).manifest['parameters']['load']['rows'] == 2, (
+        'an Int32 column covers Int64 members: a join needs one dtype where the set comparison '
+        'this replaced did not, so the master is cast rather than reported wholly missing'
+    )
+
+
+def test_coverage_says_so_when_the_two_cannot_be_compared(tmp_path):
+    spec = _narrow_demand(tmp_path, pl.Series(['0', '1']))
+    with pytest.raises(ContractError, match='different kinds of value'):
+        bind(spec, NARROW_MODEL)
 
 
 def test_a_source_that_moved_says_which_one(bindings, workspace):

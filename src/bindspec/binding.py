@@ -75,18 +75,18 @@ def _resolve(spec: Bindings) -> dict[str, dict[str, Any]]:
 
 def _coordinates(
     spec: Bindings, model: dict[str, Any], resolved: dict[str, dict[str, Any]]
-) -> tuple[dict[str, pl.DataFrame], dict[str, list[Any]]]:
+) -> tuple[dict[str, pl.DataFrame], dict[str, pl.DataFrame]]:
     frames: dict[str, pl.DataFrame] = {}
-    members: dict[str, list[Any]] = {}
+    members: dict[str, pl.DataFrame] = {}
     for dim, declaration in (model.get('dimensions') or {}).items():
         if declaration.get('values') is not None:
-            members[dim] = list(declaration['values'])
+            members[dim] = pl.DataFrame({dim: declaration['values']})
             continue
         coordinate = spec.coords[dim]
         scan = resolved[coordinate.from_]['scan']
         frame = scan.select(pl.col(coordinate.column).alias(dim)).unique(maintain_order=True).collect()
         frames[dim] = frame
-        members[dim] = frame[dim].to_list()
+        members[dim] = frame
     return frames, members
 
 
@@ -145,7 +145,7 @@ def _manifest(
     spec: Bindings,
     resolved: dict[str, dict[str, Any]],
     coordinate_frames: dict[str, pl.DataFrame],
-    members: dict[str, list[Any]],
+    members: dict[str, pl.DataFrame],
     parameters: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -157,7 +157,7 @@ def _manifest(
         },
         'coords': {
             dim: {
-                'members': len(values),
+                'members': values.height,
                 'from': 'bindings' if dim in coordinate_frames else 'model',
                 **(
                     {'source': spec.coords[dim].from_, 'column': spec.coords[dim].column}
