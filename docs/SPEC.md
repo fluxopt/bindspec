@@ -58,6 +58,15 @@ sources:
 A source may feed any number of parameters and coordinates. It is a file, not a
 parameter — which is why it is a separate key from `bind`.
 
+**A source is assumed not to change while the bind runs, and that assumption is
+not checked.** The digest is taken by its own read of the path, and the data is
+read afterwards by separate opens — one per parameter and coordinate drawn from
+that source, since a scan is a plan rather than a buffer. A file rewritten
+between those reads yields a manifest whose digest is not the digest of the
+bytes that were bound, and nothing detects it. Stable local files make this
+theoretical; a network mount or a path some other job rewrites does not.
+Closing it is [#2](https://github.com/fluxopt/bindspec/issues/2).
+
 ## 3. `coords`
 
 Where a dimension's members come from, and in what order.
@@ -169,6 +178,14 @@ Two properties it is built to have, and both are load-bearing:
 
 `checked` lists what *held*, not what was declared — which is why a parameter
 with no `expect:` entry still shows `keyed` and `non_null`.
+
+**What it does not certify.** A digest is taken by its own read, and the data is
+read afterwards (§2), so the record says *this path hashed to X at one moment,
+and a later read of it produced this answer* — not *these bytes produced this
+answer*. Nor does a recorded digest oblige anything: only a `sha256` written
+into `sources:` is enforced on the next run, and the shipped example declares
+none. A manifest is evidence of what one run saw, and it becomes a guarantee
+only when its digests are copied back into the bindings file as pins.
 
 The full worked example is [`examples/dispatch/run.out`](../examples/dispatch/run.out).
 
