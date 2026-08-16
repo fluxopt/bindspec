@@ -34,11 +34,6 @@ def above_the_ceiling(spec: dict, workspace: Path) -> dict:
     return spec
 
 
-def the_wrong_unit(spec: dict, workspace: Path) -> dict:
-    spec['expect']['p_max'] = {'units': 'kW'}
-    return spec
-
-
 def a_member_with_no_row(spec: dict, workspace: Path) -> dict:
     (workspace / 'gen.csv').write_text('name,cap\nwind,100.0\n')
     spec['expect']['p_max'] = {'covers': True}
@@ -52,7 +47,6 @@ def a_member_with_no_row(spec: dict, workspace: Path) -> dict:
         pytest.param(a_null_value, 'null value', id='a-null-where-a-number-was-expected'),
         pytest.param(below_the_floor, 'the lowest is -1.0', id='below-the-declared-floor'),
         pytest.param(above_the_ceiling, 'the highest is 120.0', id='above-the-declared-ceiling'),
-        pytest.param(the_wrong_unit, "expects unit 'kW', and its source declares 'MW'", id='unit-mismatch'),
         pytest.param(a_member_with_no_row, '1 of its 2 members', id='a-coordinate-the-data-never-mentions'),
     ],
 )

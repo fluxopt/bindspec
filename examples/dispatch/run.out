@@ -1,0 +1,101 @@
+bindings.yaml says which bytes fill model.yaml, and what must be true of them.
+
+[1] check -- nothing is opened
+    every parameter bound once, every dim set equal, every dimension
+    carrying declared members, every expected unit matching its source: ok
+
+[2] bind -- read, then check what was read
+    p_max      3 rows  MW        keyed, units, non_null, range, covers:generator
+    cost       3 rows  EUR/MWh   keyed, units, non_null, range, covers:generator
+    load       6 rows  MW        keyed, units, non_null, covers:snapshot
+    snapshot   6 members, from the bindings
+    generator  3 members, from the model
+
+[3] solve -- the mapping goes straight to lpspec, unchanged
+    handed over  cost, load, p_max, snapshot
+    status       ok
+    objective    1000.0
+
+[4] the manifest -- what a reader needs to re-derive that number
+    {
+      "coords": {
+        "generator": {
+          "from": "model",
+          "members": 3
+        },
+        "snapshot": {
+          "column": "hour",
+          "from": "bindings",
+          "members": 6,
+          "source": "demand"
+        }
+      },
+      "description": "Six hours of a small fleet, as exported from the planning sheet.",
+      "parameters": {
+        "cost": {
+          "checked": [
+            "keyed",
+            "units",
+            "non_null",
+            "range",
+            "covers:generator"
+          ],
+          "column": "marginal_cost",
+          "rows": 3,
+          "source": "generators",
+          "units": "EUR/MWh"
+        },
+        "load": {
+          "checked": [
+            "keyed",
+            "units",
+            "non_null",
+            "covers:snapshot"
+          ],
+          "column": "mw",
+          "rows": 6,
+          "source": "demand",
+          "units": "MW"
+        },
+        "p_max": {
+          "checked": [
+            "keyed",
+            "units",
+            "non_null",
+            "range",
+            "covers:generator"
+          ],
+          "column": "p_max_mw",
+          "rows": 3,
+          "source": "generators",
+          "units": "MW"
+        }
+      },
+      "sources": {
+        "demand": {
+          "bytes": 55,
+          "path": "data/demand.csv",
+          "sha256": "3997994d9c84db4f6b4629239d257bc43150e372413ba7c43ccbbb993b2e7998"
+        },
+        "generators": {
+          "bytes": 73,
+          "path": "data/generators.csv",
+          "sha256": "24d34a6edd38931c98d6cc8fc35c2ea8ee6208e6396b613f3bcfa005926900ea"
+        }
+      },
+      "version": 0
+    }
+
+[5] what is refused, and what the message says to do
+
+    a unit nobody converted:
+      BindingError: parameter 'p_max' expects unit 'kW', and source 'generators' declares 'MW' for column 'p_max_mw'. Units are compared verbatim and never converted — convert upstream and declare what you produced.
+
+    a dimension whose members nobody declared:
+      BindingError: dimension 'snapshot' has no declared members: add it to coords:, or give the model a values: list. Leaving it to be derived from the parameter tables costs the declared order, which shift reads positionally.
+
+    a coordinate the data never mentions:
+      ContractError: parameter 'p_max' covers 'generator', and 1 of its 3 members has no row: 'gas'.
+
+    The third one is the whole argument for this package: lpspec would
+    have built that model, solved it, and returned a cheaper answer.

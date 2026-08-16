@@ -68,14 +68,6 @@ def _check_range(name: str, frame: pl.DataFrame, expect: Expect) -> None:
         raise ContractError(f"parameter '{name}' expects values <= {high}; the highest is {found_high}.")
 
 
-def _check_units(name: str, expect: Expect, declared: str | None) -> None:
-    if expect.units is not None and declared != expect.units:
-        raise ContractError(
-            f"parameter '{name}' expects unit '{expect.units}', and its source declares '{declared}'. "
-            'Units are compared verbatim and never converted — convert upstream and declare what you produced.'
-        )
-
-
 def _check_coverage(
     name: str, frame: pl.DataFrame, expect: Expect, dims: Sequence[str], coords: dict[str, list[Any]]
 ) -> None:
@@ -87,7 +79,7 @@ def _check_coverage(
             more = f' (+{len(missing) - 5} more)' if len(missing) > 5 else ''
             raise ContractError(
                 f"parameter '{name}' covers '{dim}', and {len(missing)} of its {len(coords[dim])} members "
-                f'have no row: {shown}{more}.'
+                f'{"has" if len(missing) == 1 else "have"} no row: {shown}{more}.'
             )
 
 
@@ -96,28 +88,28 @@ def check_parameter(
     frame: pl.DataFrame,
     dims: Sequence[str],
     expect: Expect,
-    units: str | None,
     coords: dict[str, list[Any]],
 ) -> list[str]:
     """Run every contract that applies to one bound parameter.
+
+    ``units`` is absent here on purpose: comparing two declarations needs no
+    data, so :mod:`bindspec.checking` has already settled it.
 
     Args:
         name: The parameter's name, as it appears in the model.
         frame: Its rows, columns ``(dims…, value)``, already renamed.
         dims: The parameter's dimensions, in the model's declared order.
         expect: What was declared about it, or the defaults.
-        units: The unit the source declares for the value column, if any.
         coords: Master coordinate members by dimension, for coverage.
 
     Returns:
-        The names of the checks that ran, for the manifest.
+        The names of the checks that held, for the manifest.
 
     Raises:
         ContractError: On the first expectation that does not hold. The message
             names the parameter, what was expected and what was found.
     """
     _check_keys(name, frame, dims)
-    _check_units(name, expect, units)
     _check_nulls(name, frame, expect)
     _check_range(name, frame, expect)
     _check_coverage(name, frame, expect, dims, coords)

@@ -128,7 +128,7 @@ def bind(bindings: str | Path | dict[str, Any], model: Any) -> Binding:
         )
         expect = spec.expect.get(name, Expect())
         units = spec.sources[plan.from_].units.get(plan.value)
-        ran = check_parameter(name, frame, dims, expect, units, members)
+        ran = check_parameter(name, frame, dims, expect, members)
         sources[name] = frame
         parameters[name] = {
             'source': plan.from_,
@@ -152,7 +152,7 @@ def _manifest(
         'description': spec.description,
         'version': spec.version,
         'sources': {
-            name: {'path': str(entry['path']), 'sha256': entry['sha256'], 'bytes': entry['bytes']}
+            name: {'path': spec.sources[name].path, 'sha256': entry['sha256'], 'bytes': entry['bytes']}
             for name, entry in resolved.items()
         },
         'coords': {

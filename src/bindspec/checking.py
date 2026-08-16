@@ -100,6 +100,12 @@ def _check_expectations(spec: Bindings, model: dict[str, Any]) -> None:
                     f"expect '{name}' requires unit '{expect.units}', but source '{bind.from_}' declares no unit "
                     f"for column '{bind.value}'. Add it under that source's units:, or drop the expectation."
                 )
+            if declared[bind.value] != expect.units:
+                raise BindingError(
+                    f"parameter '{name}' expects unit '{expect.units}', and source '{bind.from_}' declares "
+                    f"'{declared[bind.value]}' for column '{bind.value}'. Units are compared verbatim and never "
+                    'converted — convert upstream and declare what you produced.'
+                )
 
 
 def check_structure(spec: Bindings, model: dict[str, Any]) -> None:
